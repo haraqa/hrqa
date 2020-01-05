@@ -44,6 +44,7 @@ to quickly create a Cobra application.`,
 		err = client.Consume(ctx, []byte(topic), offset, maxBatchSize, &resp)
 		if err != nil {
 			fmt.Printf("Unable to consume message(s) from %q: %q\n", topic, err.Error())
+			client.Close()
 			os.Exit(1)
 		}
 
@@ -68,7 +69,7 @@ to quickly create a Cobra application.`,
 func init() {
 	consumeCmd.Flags().StringP(topicFlag())
 	must(consumeCmd.MarkFlagRequired("topic"))
-	consumeCmd.Flags().Int64P("offset", "o", -1, "offset to consume from, -1 for next message from the next available offset")
+	consumeCmd.Flags().Int64P("offset", "o", -1, "offset to consume from, -1 for message from the last available offset")
 	consumeCmd.Flags().Int64P("max", "m", 100, "maximum number of messages to consume")
 	rootCmd.AddCommand(consumeCmd)
 }

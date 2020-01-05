@@ -37,8 +37,8 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "set log level to verbose")
 	rootCmd.PersistentFlags().StringP("broker", "b", "127.0.0.1", "broker to produce to")
 	rootCmd.PersistentFlags().IntP("grpc", "g", 4353, "broker grpc port")
-	rootCmd.PersistentFlags().IntP("stream", "s", 14353, "broker stream port")
-	rootCmd.PersistentFlags().StringP("unix-stream", "u", "", "unix socket to stream to a locally running broker. e.g. '/tmp/haraqa.sock'")
+	rootCmd.PersistentFlags().IntP("data", "d", 14353, "broker data port")
+	rootCmd.PersistentFlags().StringP("unix", "u", "", "unix socket for a data connection to a locally running broker. e.g. '/tmp/haraqa.sock'")
 }
 
 func must(err error) {
@@ -83,17 +83,17 @@ func newConnection(cmd *cobra.Command, vfmt *verbose) *haraqa.Client {
 	must(err)
 	grpc, err := cmd.PersistentFlags().GetInt("grpc")
 	must(err)
-	stream, err := cmd.PersistentFlags().GetInt("stream")
+	data, err := cmd.PersistentFlags().GetInt("data")
 	must(err)
-	unixStream, err := cmd.PersistentFlags().GetString("unix-stream")
+	unixData, err := cmd.PersistentFlags().GetString("unix")
 	must(err)
 
 	// setup client connection
 	config := haraqa.DefaultConfig
 	config.Host = broker
 	config.GRPCPort = grpc
-	config.StreamPort = stream
-	config.UnixSocket = unixStream
+	config.DataPort = data
+	config.UnixSocket = unixData
 
 	vfmt.Printf("Connecting to %+v \n", config)
 	client, err := haraqa.NewClient(config)

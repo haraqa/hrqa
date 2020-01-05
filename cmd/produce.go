@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 )
@@ -42,8 +44,17 @@ var produceCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			vfmt.Println("Success")
-			os.Exit(0)
+			return
 		}
+
+		// handle ctrl+c
+		c := make(chan os.Signal, 2)
+		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+		go func() {
+			<-c
+			client.Close()
+			os.Exit(0)
+		}()
 
 		// send messages from stdin
 		vfmt.Println("Reading messages from stdin")
@@ -58,12 +69,14 @@ var produceCmd = &cobra.Command{
 			err = client.Produce(context.Background(), []byte(topic), msg)
 			if err != nil {
 				fmt.Printf("Unable to produce message %q: %q\n", string(msg), err.Error())
+				client.Close()
 				os.Exit(1)
 			}
 			vfmt.Println("Success")
 		}
 		if err := scanner.Err(); err != nil {
 			fmt.Printf("Error reading input: %q\n", err.Error())
+			client.Close()
 			os.Exit(1)
 		}
 		vfmt.Println("Done.")

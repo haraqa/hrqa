@@ -3,7 +3,7 @@ Hrqa
 Command Line Haraqa Client
 --------------------------------------------------
 
-![Mascot](mascot.png)
+![Mascot](https://raw.githubusercontent.com/haraqa/haraqa/master/mascot.png)
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/haraqa/hrqa)](https://goreportcard.com/report/haraqa/hrqa)
 [![Release](https://img.shields.io/github/release/haraqa/hrqa.svg)](https://github.com/haraqa/hrqa/releases)
