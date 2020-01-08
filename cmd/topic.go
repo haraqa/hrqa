@@ -20,6 +20,8 @@ var topicCmd = &cobra.Command{
 }
 
 func init() {
+	topicListCmd.Flags().StringP("regex", "r", "", "regexp to match topics to")
+
 	topicDeleteCmd.Flags().StringP(topicFlag())
 	must(topicDeleteCmd.MarkFlagRequired("topic"))
 
@@ -95,7 +97,10 @@ var topicListCmd = &cobra.Command{
 		client := newConnection(cmd, vfmt)
 		defer client.Close()
 
-		topics, err := client.ListTopics(context.Background())
+		regex, err := cmd.Flags().GetString("regex")
+		must(err)
+
+		topics, err := client.ListTopics(context.Background(), regex)
 		if err != nil {
 			fmt.Printf("Unable to list topics: %q\n", err.Error())
 			os.Exit(1)
