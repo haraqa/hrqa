@@ -3,11 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/haraqa/haraqa"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -38,10 +36,10 @@ to quickly create a Cobra application.`,
 
 		// send consume message
 		ctx := context.Background()
-		resp := haraqa.ConsumeResponse{}
+		buf := haraqa.NewConsumeBuffer()
 
 		vfmt.Printf("Consuming from the topic %q\n", topic)
-		err = client.Consume(ctx, []byte(topic), offset, maxBatchSize, &resp)
+		msgs, err := client.Consume(ctx, []byte(topic), offset, maxBatchSize, buf)
 		if err != nil {
 			fmt.Printf("Unable to consume message(s) from %q: %q\n", topic, err.Error())
 			client.Close()
@@ -49,19 +47,8 @@ to quickly create a Cobra application.`,
 		}
 
 		// print messages to stdout
-		for resp.N() > 0 {
-			vfmt.Printf("Consuming next message\n")
-			msg, err := resp.Next()
-			if err != nil && errors.Cause(err) != io.EOF {
-				fmt.Printf("Unable to consume message responses from %q: %q\n", topic, err.Error())
-				os.Exit(1)
-			}
-			if len(msg) > 0 {
-				fmt.Println(string(msg))
-			}
-			if err != nil {
-				vfmt.Printf("Got error %q\n", err.Error())
-			}
+		for _, msg := range msgs {
+			fmt.Println(string(msg))
 		}
 	},
 }
