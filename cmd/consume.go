@@ -27,7 +27,7 @@ to quickly create a Cobra application.`,
 		must(err)
 		offset, err := cmd.Flags().GetInt64("offset")
 		must(err)
-		maxBatchSize, err := cmd.Flags().GetInt64("max")
+		limit, err := cmd.Flags().GetInt64("max")
 		must(err)
 
 		// setup client connection
@@ -39,7 +39,7 @@ to quickly create a Cobra application.`,
 		buf := haraqa.NewConsumeBuffer()
 
 		vfmt.Printf("Consuming from the topic %q\n", topic)
-		msgs, err := client.Consume(ctx, []byte(topic), offset, maxBatchSize, buf)
+		msgs, err := client.Consume(ctx, []byte(topic), offset, limit, buf)
 		if err != nil {
 			fmt.Printf("Unable to consume message(s) from %q: %q\n", topic, err.Error())
 			client.Close()

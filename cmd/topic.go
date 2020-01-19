@@ -30,7 +30,10 @@ func init() {
 	topicCreateCmd.Flags().StringP(topicFlag())
 	must(topicCreateCmd.MarkFlagRequired("topic"))
 
-	topicCmd.AddCommand(topicListCmd, topicCreateCmd, topicDeleteCmd)
+	topicOffsetsCmd.Flags().StringP(topicFlag())
+	must(topicOffsetsCmd.MarkFlagRequired("topic"))
+
+	topicCmd.AddCommand(topicListCmd, topicCreateCmd, topicDeleteCmd, topicOffsetsCmd)
 	rootCmd.AddCommand(topicCmd)
 }
 
@@ -83,6 +86,32 @@ var topicDeleteCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		vfmt.Printf("Deleted topic %q\n", topic)
+	},
+}
+
+// topicOffsetsCmd represents the create command
+var topicOffsetsCmd = &cobra.Command{
+	Use:     "offsets",
+	Short:   "Get the min and max offsets of a topic",
+	Example: `  hrqa topic offsets -t hello`,
+	Long:    `Get the min and max offsets of a topic.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		vfmt := newVerbose(cmd)
+
+		// ge† flags
+		topic, err := cmd.Flags().GetString("topic")
+		must(err)
+
+		// setup client connection
+		client := newConnection(cmd, vfmt)
+		defer client.Close()
+
+		min, max, err := client.Offsets(context.Background(), []byte(topic))
+		if err != nil {
+			fmt.Printf("Unable to get topic offsets for %q: %q\n", topic, err.Error())
+			os.Exit(1)
+		}
+		fmt.Printf("min: %d, max: %d\n", min, max)
 	},
 }
 
