@@ -27,28 +27,59 @@ to quickly create a Cobra application.`,
 		must(err)
 		offset, err := cmd.Flags().GetInt64("offset")
 		must(err)
-		limit, err := cmd.Flags().GetInt64("max")
+		limit, err := cmd.Flags().GetInt64("limit")
+		must(err)
+		follow, err := cmd.Flags().GetBool("follow")
 		must(err)
 
 		// setup client connection
 		client := newConnection(cmd, vfmt)
 		defer client.Close()
 
-		// send consume message
+		// start watching the topic
 		ctx := context.Background()
-		buf := haraqa.NewConsumeBuffer()
-
-		vfmt.Printf("Consuming from the topic %q\n", topic)
-		msgs, err := client.Consume(ctx, []byte(topic), offset, limit, buf)
-		if err != nil {
-			fmt.Printf("Unable to consume message(s) from %q: %q\n", topic, err.Error())
-			client.Close()
-			os.Exit(1)
+		ch := make(chan haraqa.WatchEvent, 100)
+		if follow {
+			closer, err := client.WatchTopics(ctx, ch, []byte(topic))
+			if err != nil {
+				fmt.Printf("Unable to consume message(s) from %q: %q\n", topic, err.Error())
+				os.Exit(1)
+			}
+			defer closer.Close()
 		}
 
-		// print messages to stdout
-		for _, msg := range msgs {
-			fmt.Println(string(msg))
+		buf := haraqa.NewConsumeBuffer()
+		for {
+			// send consume message
+			vfmt.Printf("Consuming from the topic %q\n", topic)
+			msgs, err := client.Consume(ctx, []byte(topic), offset, limit, buf)
+			if err != nil {
+				fmt.Printf("Unable to consume message(s) from %q: %q\n", topic, err.Error())
+				os.Exit(1)
+			}
+
+			// print messages to stdout
+			for _, msg := range msgs {
+				fmt.Println(string(msg))
+			}
+			if !follow {
+				break
+			}
+			offset += int64(len(msgs))
+			if len(msgs) == 0 {
+
+				// clear out event queue
+				for len(ch) > 1 {
+					<-ch
+				}
+
+				// wait for a watch event
+				watchEvent := <-ch
+				if watchEvent.Err != nil {
+					fmt.Printf("Unable to watch topic %q: %q\n", topic, err.Error())
+					os.Exit(1)
+				}
+			}
 		}
 	},
 }
@@ -57,6 +88,7 @@ func init() {
 	consumeCmd.Flags().StringP(topicFlag())
 	must(consumeCmd.MarkFlagRequired("topic"))
 	consumeCmd.Flags().Int64P("offset", "o", -1, "offset to consume from, -1 for message from the last available offset")
-	consumeCmd.Flags().Int64P("max", "m", 100, "maximum number of messages to consume")
+	consumeCmd.Flags().Int64P("limit", "l", 100, "maximum number of messages to consume per consume call")
+	consumeCmd.Flags().BoolP("follow", "f", false, "follow the topic, continuously consume until ctrl+c is called")
 	rootCmd.AddCommand(consumeCmd)
 }
