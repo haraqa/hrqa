@@ -40,12 +40,16 @@ to quickly create a Cobra application.`,
 		ctx := context.Background()
 		ch := make(chan haraqa.WatchEvent, 100)
 		if follow {
-			closer, err := client.WatchTopics(ctx, ch, []byte(topic))
-			if err != nil {
-				fmt.Printf("Unable to consume message(s) from %q: %q\n", topic, err.Error())
-				os.Exit(1)
-			}
-			defer closer.Close()
+			watchCTX, cancel := context.WithCancel(ctx)
+			defer cancel()
+
+			go func() {
+				err = client.WatchTopics(watchCTX, ch, []byte(topic))
+				if err != nil {
+					fmt.Printf("Unable to consume message(s) from %q: %q\n", topic, err.Error())
+					os.Exit(1)
+				}
+			}()
 		}
 
 		buf := haraqa.NewConsumeBuffer()
@@ -74,11 +78,7 @@ to quickly create a Cobra application.`,
 				}
 
 				// wait for a watch event
-				watchEvent := <-ch
-				if watchEvent.Err != nil {
-					fmt.Printf("Unable to watch topic %q: %q\n", topic, err.Error())
-					os.Exit(1)
-				}
+				<-ch
 			}
 		}
 	},
