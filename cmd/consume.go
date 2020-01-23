@@ -40,6 +40,9 @@ to quickly create a Cobra application.`,
 		ctx := context.Background()
 		ch := make(chan haraqa.WatchEvent, 100)
 		if follow {
+			if offset < 0 {
+				offset = 0
+			}
 			watchCTX, cancel := context.WithCancel(ctx)
 			defer cancel()
 
