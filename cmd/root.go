@@ -74,7 +74,7 @@ func (v *verbose) Printf(s string, a ...interface{}) {
 	fmt.Printf(s, a...)
 }
 
-func newConnection(cmd *cobra.Command, vfmt *verbose) haraqa.Client {
+func newConnection(cmd *cobra.Command, vfmt *verbose) *haraqa.Client {
 	for cmd.HasParent() {
 		cmd = cmd.Parent()
 	}
@@ -88,15 +88,8 @@ func newConnection(cmd *cobra.Command, vfmt *verbose) haraqa.Client {
 	unixData, err := cmd.PersistentFlags().GetString("unix")
 	must(err)
 
-	// setup client connection
-	config := haraqa.DefaultConfig
-	config.Host = broker
-	config.GRPCPort = grpc
-	config.DataPort = data
-	config.UnixSocket = unixData
-
-	vfmt.Printf("Connecting to %+v \n", config)
-	client, err := haraqa.NewClient(config)
+	vfmt.Printf("Connecting to %+v \n", broker)
+	client, err := haraqa.NewClient(haraqa.WithAddr(broker), haraqa.WithGRPCPort(grpc), haraqa.WithDataPort(data), haraqa.WithUnixSocket(unixData))
 	if err != nil {
 		fmt.Printf("Unable to connect to broker: %q\n", err.Error())
 		os.Exit(1)
