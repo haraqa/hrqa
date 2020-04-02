@@ -1,9 +1,9 @@
 Hrqa
 ===
-[![Go Version](https://img.shields.io/github/go-mod/go-version/haraqa/hrqa)](https://github.com/haraqa/hrqa/blob/master/go.mod#L3)
 [![Go Report Card](https://goreportcard.com/badge/github.com/haraqa/hrqa)](https://goreportcard.com/report/haraqa/hrqa)
 [![License](https://img.shields.io/github/license/haraqa/hrqa.svg)](https://github.com/haraqa/hrqa/blob/master/LICENSE)
 [![build](https://github.com/haraqa/hrqa/workflows/build/badge.svg)](https://github.com/haraqa/hrqa/blob/master/.github/workflows/go.yml)
+[![Docker Build](https://img.shields.io/docker/cloud/build/haraqa/hrqa.svg)](https://hub.docker.com/r/haraqa/hrqa/)
 [![Release](https://img.shields.io/github/release/haraqa/hrqa.svg)](https://github.com/haraqa/hrqa/releases)
 
 <h2 align="center">Command Line Haraqa Client</h2>
@@ -18,8 +18,14 @@ Hrqa
 
 ## Install
 
+#### From source:
 ```
 go get github.com/haraqa/hrqa
+```
+
+#### From docker
+```
+docker run haraqa/hrqa --help
 ```
 
 ## Run
