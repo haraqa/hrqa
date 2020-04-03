@@ -5,6 +5,7 @@ go 1.13
 require (
 	github.com/coreos/go-etcd v2.0.0+incompatible // indirect
 	github.com/cpuguy83/go-md2man v1.0.10 // indirect
+	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/haraqa/haraqa v0.0.0-20200401050204-059588a36b82
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v0.0.7
