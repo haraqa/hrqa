@@ -47,23 +47,24 @@ var loadCmd = &cobra.Command{
 		}
 		var wg sync.WaitGroup
 		for i := 0; i < num; i++ {
+			tmpTopic := []byte(topic)
 			if topic == "" {
 				id, err := uuid.NewV4()
 				must(err)
-				topic = id.String()
+				tmpTopic = []byte(id.String())
 			}
 
 			switch strings.ToLower(typed) {
 			case "producer":
 				wg.Add(1)
-				go loadProducer(cmd, vfmt, &wg, topic, limit, msgSize, duration)
+				go loadProducer(cmd, vfmt, &wg, tmpTopic, limit, msgSize, duration)
 			case "consumer":
 				wg.Add(1)
-				go loadConsumer(cmd, vfmt, &wg, topic, limit, msgSize, duration)
+				go loadConsumer(cmd, vfmt, &wg, tmpTopic, limit, msgSize, duration)
 			case "prodcon":
 				wg.Add(2)
-				go loadProducer(cmd, vfmt, &wg, topic, limit, msgSize, duration)
-				go loadConsumer(cmd, vfmt, &wg, topic, limit, msgSize, duration)
+				go loadProducer(cmd, vfmt, &wg, tmpTopic, limit, msgSize, duration)
+				go loadConsumer(cmd, vfmt, &wg, tmpTopic, limit, msgSize, duration)
 			}
 		}
 		wg.Wait()
@@ -83,7 +84,7 @@ func init() {
 	rootCmd.AddCommand(loadCmd)
 }
 
-func loadProducer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic string, batchSize int, msgSize int, duration time.Duration) {
+func loadProducer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic []byte, batchSize int, msgSize int, duration time.Duration) {
 	defer wg.Done()
 
 	done := make(chan struct{})
@@ -107,17 +108,17 @@ func loadProducer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic s
 	client := newConnection(cmd, vfmt)
 	defer client.Close()
 
-	err := client.CreateTopic(ctx, []byte(topic))
+	err := client.CreateTopic(ctx, topic)
 	if err != nil && errors.Cause(err) != haraqa.ErrTopicExists {
 		vfmt.Println("error creating topic", err.Error())
 		return
 	}
 
-	vfmt.Println("Producing to", topic)
-	defer vfmt.Println("Finished producing to", topic)
+	vfmt.Printf("Producing to %s\n", topic)
+	defer vfmt.Printf("Finished producing to %s\n", topic)
 
 	go func() {
-		err := client.ProduceLoop(ctx, []byte(topic), ch)
+		err := client.ProduceLoop(ctx, topic, ch)
 		if err != nil && err != ctx.Err() {
 			vfmt.Printf("ProduceLoop error: %q\n", err.Error())
 		}
@@ -152,7 +153,7 @@ func loadProducer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic s
 	}
 }
 
-func loadConsumer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic string, batchSize int, msgSize int, duration time.Duration) {
+func loadConsumer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic []byte, batchSize int, msgSize int, duration time.Duration) {
 	defer wg.Done()
 
 	ctx := context.Background()
@@ -161,14 +162,14 @@ func loadConsumer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic s
 	client := newConnection(cmd, vfmt)
 	defer client.Close()
 
-	err := client.CreateTopic(ctx, []byte(topic))
+	err := client.CreateTopic(ctx, topic)
 	if err != nil && errors.Cause(err) != haraqa.ErrTopicExists {
 		vfmt.Println("error creating topic", err.Error())
 		return
 	}
 
-	vfmt.Println("Consuming from", topic)
-	defer vfmt.Println("Finished consuming from", topic)
+	vfmt.Printf("Consuming from %s\n", topic)
+	defer vfmt.Printf("Finished consuming from %s\n", topic)
 
 	buf := haraqa.NewConsumeBuffer()
 	var msgs [][]byte
@@ -182,7 +183,7 @@ func loadConsumer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic s
 			return
 		default:
 		}
-		msgs, err = client.Consume(ctx, []byte(topic), offset, int64(batchSize), buf)
+		msgs, err = client.Consume(ctx, topic, offset, int64(batchSize), buf)
 		if err != nil {
 			vfmt.Printf("Client consume error %s", err.Error())
 			return
