@@ -38,6 +38,8 @@ var loadCmd = &cobra.Command{
 		must(err)
 		duration, err := cmd.Flags().GetDuration("duration")
 		must(err)
+		ticker, err := cmd.Flags().GetDuration("ticker")
+		must(err)
 
 		switch strings.ToLower(typed) {
 		case "producer", "consumer", "prodcon":
@@ -57,14 +59,14 @@ var loadCmd = &cobra.Command{
 			switch strings.ToLower(typed) {
 			case "producer":
 				wg.Add(1)
-				go loadProducer(cmd, vfmt, &wg, tmpTopic, limit, msgSize, duration)
+				go loadProducer(cmd, vfmt, &wg, tmpTopic, limit, msgSize, duration, ticker)
 			case "consumer":
 				wg.Add(1)
-				go loadConsumer(cmd, vfmt, &wg, tmpTopic, limit, msgSize, duration)
+				go loadConsumer(cmd, vfmt, &wg, tmpTopic, limit, msgSize, duration, ticker)
 			case "prodcon":
 				wg.Add(2)
-				go loadProducer(cmd, vfmt, &wg, tmpTopic, limit, msgSize, duration)
-				go loadConsumer(cmd, vfmt, &wg, tmpTopic, limit, msgSize, duration)
+				go loadProducer(cmd, vfmt, &wg, tmpTopic, limit, msgSize, duration, ticker)
+				go loadConsumer(cmd, vfmt, &wg, tmpTopic, limit, msgSize, duration, ticker)
 			}
 		}
 		wg.Wait()
@@ -79,12 +81,13 @@ func init() {
 	loadCmd.Flags().IntP("limit", "l", 100, "maximum number of messages to produce/consume per consume call")
 	loadCmd.Flags().Int("msgSize", 100, "message size to produce")
 	loadCmd.Flags().Duration("duration", time.Second*30, "duration to run the loading for")
+	loadCmd.Flags().Duration("ticker", 0, "duration between consuming/producing messages, defaults to 0ms (send/receive as fast as possible)")
 
 	must(loadCmd.MarkFlagRequired("type"))
 	rootCmd.AddCommand(loadCmd)
 }
 
-func loadProducer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic []byte, batchSize int, msgSize int, duration time.Duration) {
+func loadProducer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic []byte, batchSize int, msgSize int, duration, ticker time.Duration) {
 	defer wg.Done()
 
 	done := make(chan struct{})
@@ -128,7 +131,16 @@ func loadProducer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic [
 	exit := time.NewTimer(duration)
 	defer exit.Stop()
 
+	var tick *time.Ticker
+	if ticker != 0 {
+		tick = time.NewTicker(ticker)
+		defer tick.Stop()
+	}
+
 	for {
+		if tick != nil {
+			<-tick.C
+		}
 		for i := range errs {
 			// clear previous errors if any
 			select {
@@ -153,7 +165,7 @@ func loadProducer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic [
 	}
 }
 
-func loadConsumer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic []byte, batchSize int, msgSize int, duration time.Duration) {
+func loadConsumer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic []byte, batchSize int, msgSize int, duration, ticker time.Duration) {
 	defer wg.Done()
 
 	ctx := context.Background()
@@ -177,7 +189,16 @@ func loadConsumer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic [
 	exit := time.NewTimer(duration)
 	defer exit.Stop()
 
+	var tick *time.Ticker
+	if ticker != 0 {
+		tick = time.NewTicker(ticker)
+		defer tick.Stop()
+	}
+
 	for {
+		if tick != nil {
+			<-tick.C
+		}
 		select {
 		case <-exit.C:
 			return
