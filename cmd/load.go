@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/gofrs/uuid"
@@ -77,13 +78,12 @@ func init() {
 	topicLong, topicShort, topicDefault, _ := topicFlag()
 	loadCmd.Flags().StringP(topicLong, topicShort, topicDefault, "topic to load, optional. A uuid is generated for each goroutine if not given")
 	loadCmd.Flags().IntP("num", "n", 1, "number of goroutines to spawn")
-	loadCmd.Flags().String("type", "", "type of loader, e.g. producer, consumer, or prodcon")
+	loadCmd.Flags().String("type", "prodcon", "type of loader, e.g. producer, consumer, or prodcon")
 	loadCmd.Flags().IntP("limit", "l", 100, "maximum number of messages to produce/consume per consume call")
 	loadCmd.Flags().Int("msgSize", 100, "message size to produce")
 	loadCmd.Flags().Duration("duration", time.Second*30, "duration to run the loading for")
 	loadCmd.Flags().Duration("ticker", 0, "duration between consuming/producing messages, defaults to 0ms (send/receive as fast as possible)")
 
-	must(loadCmd.MarkFlagRequired("type"))
 	rootCmd.AddCommand(loadCmd)
 }
 
@@ -116,9 +116,11 @@ func loadProducer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic [
 		vfmt.Println("error creating topic", err.Error())
 		return
 	}
-
+	var total int64
 	vfmt.Printf("Producing to %s\n", topic)
-	defer vfmt.Printf("Finished producing to %s\n", topic)
+	defer func() {
+		vfmt.Printf("Finished producing to %s, total produced: %v\n", topic, total)
+	}()
 
 	go func() {
 		err := client.ProduceLoop(ctx, topic, ch)
@@ -137,6 +139,20 @@ func loadProducer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic [
 		defer tick.Stop()
 	}
 
+	defer func() {
+		for i := range errs {
+			select {
+			case err = <-errs[i]:
+				if err != nil {
+					vfmt.Println(err)
+				} else {
+					atomic.AddInt64(&total, 1)
+				}
+			default:
+			}
+		}
+	}()
+
 	for {
 		if tick != nil {
 			<-tick.C
@@ -147,6 +163,8 @@ func loadProducer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic [
 			case err = <-errs[i]:
 				if err != nil {
 					vfmt.Println(err)
+				} else {
+					atomic.AddInt64(&total, 1)
 				}
 			default:
 			}
@@ -180,12 +198,14 @@ func loadConsumer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic [
 		return
 	}
 
-	vfmt.Printf("Consuming from %s\n", topic)
-	defer vfmt.Printf("Finished consuming from %s\n", topic)
-
 	buf := haraqa.NewConsumeBuffer()
 	var msgs [][]byte
 	var offset int64
+
+	vfmt.Printf("Consuming from %s\n", topic)
+	defer func() {
+		vfmt.Printf("Finished consuming from %s, total consumed: %v\n", topic, offset)
+	}()
 	exit := time.NewTimer(duration)
 	defer exit.Stop()
 
