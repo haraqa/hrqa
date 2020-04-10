@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gofrs/uuid"
+	"github.com/google/uuid"
 	"github.com/haraqa/haraqa"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -52,8 +52,7 @@ var loadCmd = &cobra.Command{
 		for i := 0; i < num; i++ {
 			tmpTopic := []byte(topic)
 			if topic == "" {
-				id, err := uuid.NewV4()
-				must(err)
+				id := uuid.Must(uuid.NewRandom())
 				tmpTopic = []byte(id.String())
 			}
 
@@ -78,7 +77,7 @@ func init() {
 	topicLong, topicShort, topicDefault, _ := topicFlag()
 	loadCmd.Flags().StringP(topicLong, topicShort, topicDefault, "topic to load, optional. A uuid is generated for each goroutine if not given")
 	loadCmd.Flags().IntP("num", "n", 1, "number of goroutines to spawn")
-	loadCmd.Flags().String("type", "prodcon", "type of loader, e.g. producer, consumer, or prodcon")
+	loadCmd.Flags().String("type", "prodcon", `type of loader, e.g. "producer", "consumer", or "prodcon" (produce and consume)`)
 	loadCmd.Flags().IntP("limit", "l", 100, "maximum number of messages to produce/consume per consume call")
 	loadCmd.Flags().Int("msgSize", 100, "message size to produce")
 	loadCmd.Flags().Duration("duration", time.Second*30, "duration to run the loading for")

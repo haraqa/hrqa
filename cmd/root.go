@@ -18,9 +18,10 @@ var rootCmd = &cobra.Command{
   hrqa topic list
   hrqa produce -t hello -m world
   hrqa consume -t hello
+	hrqa load
   hrqa topic delete -t hello`,
 	Long: `hrqa is a cli client for haraqa. It can be used to manage topics,
-produce messages and consume messages.`,
+produce messages, consume messages, and load test a broker.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

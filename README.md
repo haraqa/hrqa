@@ -54,6 +54,9 @@ hrqa consume -t my_topic -o 0
 
 # remove all messages from a topic
 hrqa topic delete -t my_topic
+
+# load test a broker
+hrqa load --duration 30s
 ```
 
 ## Contributing
