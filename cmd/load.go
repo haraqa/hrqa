@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -90,11 +89,6 @@ func loadProducer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic [
 	defer wg.Done()
 
 	done := make(chan struct{})
-	ch := make(chan haraqa.ProduceMsg, batchSize)
-	errs := make([]chan error, batchSize)
-	for i := range errs {
-		errs[i] = make(chan error, 1)
-	}
 
 	msgBuf := make([]byte, msgSize)
 	// best effort read rand data into message
@@ -121,13 +115,19 @@ func loadProducer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic [
 		vfmt.Printf("Finished producing to %s, total produced: %v\n", topic, total)
 	}()
 
-	go func() {
-		err := client.ProduceLoop(ctx, topic, ch)
-		if err != nil && err != ctx.Err() {
-			vfmt.Printf("ProduceLoop error: %q\n", err.Error())
-		}
-		close(done)
-	}()
+	producer, err := client.NewProducer(
+		haraqa.WithTopic(topic),
+		haraqa.WithIgnoreErrors(),
+		haraqa.WithBatchSize(batchSize),
+		haraqa.WithErrorHandler(func(msgs [][]byte, err error) {
+			vfmt.Println(err)
+		}),
+	)
+	if err != nil {
+		vfmt.Println("error creating producer", err.Error())
+		return
+	}
+	defer producer.Close()
 
 	exit := time.NewTimer(duration)
 	defer exit.Stop()
@@ -138,47 +138,19 @@ func loadProducer(cmd *cobra.Command, vfmt *verbose, wg *sync.WaitGroup, topic [
 		defer tick.Stop()
 	}
 
-	defer func() {
-		for i := range errs {
-			select {
-			case err = <-errs[i]:
-				if err != nil {
-					vfmt.Println(err)
-				} else {
-					atomic.AddInt64(&total, 1)
-				}
-			default:
-			}
-		}
-	}()
-
 	for {
 		if tick != nil {
 			<-tick.C
 		}
-		for i := range errs {
-			// clear previous errors if any
-			select {
-			case err = <-errs[i]:
-				if err != nil {
-					vfmt.Println(err)
-				} else {
-					atomic.AddInt64(&total, 1)
-				}
-			default:
-			}
 
-			select {
-			case <-done:
-				return
-			case <-exit.C:
-				return
-			case ch <- haraqa.ProduceMsg{
-				Msg: msg,
-				Err: errs[i],
-			}:
-			}
+		select {
+		case <-done:
+			return
+		case <-exit.C:
+			return
+		default:
 		}
+		_ = producer.Send(msg)
 	}
 }
 
