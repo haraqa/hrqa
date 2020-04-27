@@ -33,21 +33,18 @@ var consumeCmd = &cobra.Command{
 
 		// start watching the topic
 		ctx := context.Background()
-		ch := make(chan haraqa.WatchEvent, 100)
+		var watcher *haraqa.Watcher
 		if follow {
 			if offset < 0 {
 				offset = 0
 			}
-			watchCTX, cancel := context.WithCancel(ctx)
-			defer cancel()
 
-			go func() {
-				err = client.WatchTopics(watchCTX, ch, []byte(topic))
-				if err != nil {
-					fmt.Printf("Unable to consume message(s) from %q: %q\n", topic, err.Error())
-					os.Exit(1)
-				}
-			}()
+			watcher, err = client.NewWatcher(ctx, []byte(topic))
+			if err != nil {
+				fmt.Printf("Unable to watch topic %q: %q", topic, err.Error())
+				os.Exit(1)
+			}
+			defer watcher.Close()
 		}
 
 		buf := haraqa.NewConsumeBuffer()
@@ -69,14 +66,8 @@ var consumeCmd = &cobra.Command{
 			}
 			offset += int64(len(msgs))
 			if len(msgs) == 0 {
-
-				// clear out event queue
-				for len(ch) > 1 {
-					<-ch
-				}
-
 				// wait for a watch event
-				<-ch
+				<-watcher.Events()
 			}
 		}
 	},
