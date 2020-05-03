@@ -39,7 +39,6 @@ func init() {
 	rootCmd.PersistentFlags().StringP("broker", "b", "127.0.0.1", "broker to produce to")
 	rootCmd.PersistentFlags().IntP("grpc", "g", 4353, "broker grpc port")
 	rootCmd.PersistentFlags().IntP("data", "d", 14353, "broker data port")
-	rootCmd.PersistentFlags().StringP("unix", "u", "", "unix socket for a data connection to a locally running broker. e.g. '/tmp/haraqa.sock'")
 }
 
 func must(err error) {
@@ -86,11 +85,9 @@ func newConnection(cmd *cobra.Command, vfmt *verbose) *haraqa.Client {
 	must(err)
 	data, err := cmd.PersistentFlags().GetInt("data")
 	must(err)
-	unixData, err := cmd.PersistentFlags().GetString("unix")
-	must(err)
 
 	vfmt.Printf("Connecting to %+v \n", broker)
-	client, err := haraqa.NewClient(haraqa.WithAddr(broker), haraqa.WithGRPCPort(grpc), haraqa.WithDataPort(data), haraqa.WithUnixSocket(unixData))
+	client, err := haraqa.NewClient(haraqa.WithAddr(broker), haraqa.WithGRPCPort(grpc), haraqa.WithDataPort(data))
 	if err != nil {
 		fmt.Printf("Unable to connect to broker: %q\n", err.Error())
 		os.Exit(1)
