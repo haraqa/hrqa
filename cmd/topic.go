@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -33,7 +34,12 @@ func init() {
 	topicOffsetsCmd.Flags().StringP(topicFlag())
 	must(topicOffsetsCmd.MarkFlagRequired("topic"))
 
-	topicCmd.AddCommand(topicListCmd, topicCreateCmd, topicDeleteCmd, topicOffsetsCmd)
+	topicTruncateCmd.Flags().StringP(topicFlag())
+	must(topicTruncateCmd.MarkFlagRequired("topic"))
+	topicTruncateCmd.Flags().String("datetime", "", "truncate messages prior to this datetime RFC3339 format")
+	topicTruncateCmd.Flags().Int64("offset", 0, "truncate messages prior to this offset, -1 to truncate messages up to the most recent logfile")
+
+	topicCmd.AddCommand(topicListCmd, topicCreateCmd, topicDeleteCmd, topicOffsetsCmd, topicTruncateCmd)
 	rootCmd.AddCommand(topicCmd)
 }
 
@@ -86,6 +92,51 @@ var topicDeleteCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		vfmt.Printf("Deleted topic %q\n", topic)
+	},
+}
+
+// topicTruncateCmd represents the delete command
+var topicTruncateCmd = &cobra.Command{
+	Use:     "truncate",
+	Short:   "Truncate a topic",
+	Example: `  hrqa topic truncate -t hello`,
+	Long:    `Truncate a topic.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		vfmt := newVerbose(cmd)
+
+		// ge† flags
+		topic, err := cmd.Flags().GetString("topic")
+		must(err)
+		datetime, err := cmd.Flags().GetString("datetime")
+		must(err)
+		offset, err := cmd.Flags().GetInt64("offset")
+		must(err)
+
+		var t time.Time
+		if datetime != "" {
+			t, err = time.Parse(time.RFC3339, datetime)
+			if err != nil {
+				fmt.Printf("unable to parse datetime: expected RFC3339 format: %s\n", err.Error())
+				os.Exit(1)
+			}
+		}
+
+		if offset == 0 && t.IsZero() {
+			fmt.Printf("non-zero offset or datetime is required\n")
+			os.Exit(1)
+		}
+
+		// setup client connection
+		client := newConnection(cmd, vfmt)
+		defer client.Close()
+
+		vfmt.Printf("Truncating topic %q\n", topic)
+		err = client.TruncateTopic(context.Background(), []byte(topic), offset, t)
+		if err != nil {
+			fmt.Printf("Unable to truncate topic %q: %q\n", topic, err.Error())
+			os.Exit(1)
+		}
+		vfmt.Printf("Truncating topic %q\n", topic)
 	},
 }
 
